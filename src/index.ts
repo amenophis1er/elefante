@@ -18,3 +18,4 @@ export { resolveAuth } from "./auth.js";
 export { startMcpServer } from "./mcp-server.js";
 export { buildContext } from "./context.js";
 export { detectProfile, normalizeRemote } from "./profile.js";
+export { discoverClaudeMemories, importClaudeMemories } from "./import-claude.js";

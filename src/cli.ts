@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import { createMemory, readMemory, deleteMemory, updateMemory } from "./memory.js";
 import { search, listMemories, rebuildIndex, invalidateCache } from "./indexer.js";
@@ -7,13 +8,17 @@ import * as vault from "./vault.js";
 import { startMcpServer } from "./mcp-server.js";
 import type { MemoryType } from "./types.js";
 import { MEMORY_TYPES } from "./types.js";
+import { discoverClaudeMemories, importClaudeMemories } from "./import-claude.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
 
 const program = new Command();
 
 program
   .name("elefante")
   .description("The open, Git-native memory protocol for MCP agents")
-  .version("0.1.0");
+  .version(pkg.version);
 
 program
   .command("init")
@@ -184,6 +189,20 @@ program
     } catch {
       console.log("Pulled latest. Nothing to push.");
     }
+  });
+
+program
+  .command("import")
+  .description("Import memories from another source")
+  .requiredOption("--from <source>", "Source to import from (claude)")
+  .option("--dry-run", "Preview what would be imported without writing")
+  .action(async (opts) => {
+    ensureInit();
+    if (opts.from !== "claude") {
+      console.error(`Unknown source: ${opts.from}. Supported: claude`);
+      process.exit(1);
+    }
+    await importClaudeMemories({ dryRun: opts.dryRun });
   });
 
 program

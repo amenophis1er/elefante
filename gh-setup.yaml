@@ -1,0 +1,22 @@
+account:
+  type: individual
+  name: amenophis1er
+
+defaults:
+  visibility: public
+  default_branch: main
+  delete_branch_on_merge: true
+
+repos:
+  - name: elefante
+    description: "The open, Git-native memory protocol for MCP agents: portable, inspectable, versioned, and human-editable."
+    topics:
+      - ai-memory
+      - mcp
+      - git
+      - ai-agents
+      - claude
+      - codex
+      - memory-protocol
+      - developer-tools
+    visibility: public

@@ -1,6 +1,7 @@
 {
   "name": "elefante-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
+  "mcpName": "io.github.amenophis1er/elefante",
   "description": "The open, Git-native memory protocol for MCP agents",
   "type": "module",
   "bin": {

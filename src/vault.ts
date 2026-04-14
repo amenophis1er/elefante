@@ -6,7 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import YAML from "yaml";
 import type { SyncResult, VaultConfig } from "./types.js";
@@ -29,7 +29,7 @@ export async function init(repoUrl: string): Promise<void> {
   }
 
   mkdirSync(dirname(VAULT_DIR), { recursive: true });
-  await exec("git", ["clone", repoUrl, VAULT_DIR]);
+  await exec("git", ["clone", "--", repoUrl, VAULT_DIR]);
 
   // Ensure vault structure exists
   const dirs = [
@@ -74,29 +74,43 @@ export function getConfig(): VaultConfig {
     return DEFAULT_VAULT_CONFIG;
   }
   const raw = readFileSync(configPath, "utf-8");
-  const parsed = YAML.parse(raw);
-  return { ...DEFAULT_VAULT_CONFIG, ...parsed };
+  const parsed = YAML.parse(raw) ?? {};
+  return {
+    ...DEFAULT_VAULT_CONFIG,
+    ...parsed,
+    index: { ...DEFAULT_VAULT_CONFIG.index, ...parsed.index },
+    memory: { ...DEFAULT_VAULT_CONFIG.memory, ...parsed.memory },
+    sync: { ...DEFAULT_VAULT_CONFIG.sync, ...parsed.sync },
+  };
+}
+
+function safePath(relativePath: string): string {
+  const full = resolve(VAULT_DIR, relativePath);
+  if (!full.startsWith(resolve(VAULT_DIR))) {
+    throw new Error(`Path traversal denied: ${relativePath}`);
+  }
+  return full;
 }
 
 export function readVaultFile(relativePath: string): string {
-  return readFileSync(join(VAULT_DIR, relativePath), "utf-8");
+  return readFileSync(safePath(relativePath), "utf-8");
 }
 
 export function writeVaultFile(relativePath: string, content: string): void {
-  const fullPath = join(VAULT_DIR, relativePath);
+  const fullPath = safePath(relativePath);
   mkdirSync(dirname(fullPath), { recursive: true });
   writeFileSync(fullPath, content);
 }
 
 export function deleteVaultFile(relativePath: string): void {
-  const fullPath = join(VAULT_DIR, relativePath);
+  const fullPath = safePath(relativePath);
   if (existsSync(fullPath)) {
     rmSync(fullPath);
   }
 }
 
 export function vaultFileExists(relativePath: string): boolean {
-  return existsSync(join(VAULT_DIR, relativePath));
+  return existsSync(safePath(relativePath));
 }
 
 export async function commit(message: string, files: string[]): Promise<void> {
@@ -121,12 +135,13 @@ export async function pull(): Promise<SyncResult> {
   try {
     await git(["pull", "--rebase"]);
     return { status: "ok", message: "Pulled latest changes" };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("CONFLICT")) {
-      return { status: "conflict", message: msg };
+  } catch (err: unknown) {
+    const stderr = (err as { stderr?: string }).stderr ?? "";
+    const message = stderr || (err instanceof Error ? err.message : String(err));
+    if (message.includes("CONFLICT")) {
+      return { status: "conflict", message };
     }
-    return { status: "error", message: msg };
+    return { status: "error", message };
   }
 }
 

@@ -86,28 +86,39 @@ export async function rebuildIndex(): Promise<void> {
 
   writeVaultFile("index/manifest.json", JSON.stringify(manifest, null, 2));
   writeVaultFile("index/search.json", JSON.stringify(searchIndex, null, 2));
+
+  // Update in-memory cache to match what we just wrote
+  cachedManifest = manifest;
+  cachedSearchIndex = searchIndex;
 }
 
 // Cached index for search
 let cachedSearchIndex: SearchIndex | null = null;
 let cachedManifest: Manifest | null = null;
 
+const EMPTY_SEARCH: SearchIndex = { generated_at: "", version: "0.1", trigrams: {}, keywords: {} };
+const EMPTY_MANIFEST: Manifest = { generated_at: "", version: "0.1", commit: null, count: 0, memories: [] };
+
 function loadSearchIndex(): SearchIndex {
   if (cachedSearchIndex) return cachedSearchIndex;
-  if (!vaultFileExists("index/search.json")) {
-    return { generated_at: "", version: "0.1", trigrams: {}, keywords: {} };
+  if (!vaultFileExists("index/search.json")) return EMPTY_SEARCH;
+  try {
+    cachedSearchIndex = JSON.parse(readVaultFile("index/search.json"));
+    return cachedSearchIndex!;
+  } catch {
+    return EMPTY_SEARCH;
   }
-  cachedSearchIndex = JSON.parse(readVaultFile("index/search.json"));
-  return cachedSearchIndex!;
 }
 
 function loadManifest(): Manifest {
   if (cachedManifest) return cachedManifest;
-  if (!vaultFileExists("index/manifest.json")) {
-    return { generated_at: "", version: "0.1", commit: null, count: 0, memories: [] };
+  if (!vaultFileExists("index/manifest.json")) return EMPTY_MANIFEST;
+  try {
+    cachedManifest = JSON.parse(readVaultFile("index/manifest.json"));
+    return cachedManifest!;
+  } catch {
+    return EMPTY_MANIFEST;
   }
-  cachedManifest = JSON.parse(readVaultFile("index/manifest.json"));
-  return cachedManifest!;
 }
 
 export function invalidateCache(): void {

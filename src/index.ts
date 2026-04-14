@@ -16,3 +16,4 @@ export { search, listMemories, rebuildIndex, invalidateCache } from "./indexer.j
 export { init, isInitialized, getStatus, pull, push, getConfig } from "./vault.js";
 export { resolveAuth } from "./auth.js";
 export { startMcpServer } from "./mcp-server.js";
+export { buildContext } from "./context.js";

@@ -60,7 +60,7 @@ program
         profile: opts.profile,
         sort: opts.sort,
       },
-      parseInt(opts.limit, 10)
+      parseLimit(opts.limit, 20)
     );
 
     if (metas.length === 0) {
@@ -87,7 +87,7 @@ program
     const results = await search(
       query,
       { type: validateType(opts.type), profile: opts.profile },
-      parseInt(opts.limit, 10)
+      parseLimit(opts.limit, 20)
     );
 
     if (results.length === 0) {
@@ -215,6 +215,12 @@ function validateType(type?: string): MemoryType | undefined {
   if (MEMORY_TYPES.includes(type as MemoryType)) return type as MemoryType;
   console.error(`Invalid type: ${type}. Must be one of: ${MEMORY_TYPES.join(", ")}`);
   process.exit(1);
+}
+
+function parseLimit(value: string, fallback: number): number {
+  const n = parseInt(value, 10);
+  if (isNaN(n) || n < 1) return fallback;
+  return n;
 }
 
 program.parse();

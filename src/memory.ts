@@ -118,6 +118,11 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | n
   const existing = readMemory(input.id);
   if (!existing) return null;
 
+  const config = getConfig();
+  if (input.body !== undefined && config.memory.max_body_length > 0 && input.body.length > config.memory.max_body_length) {
+    throw new Error(`Body exceeds max length of ${config.memory.max_body_length} characters`);
+  }
+
   const oldType = existing.type;
   const oldPath = memoryPath(oldType, input.id);
 
@@ -137,7 +142,6 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | n
 
   writeVaultFile(newPath, serializeMemory(existing));
 
-  const config = getConfig();
   if (config.index.auto_rebuild) {
     await rebuildIndex();
   }

@@ -1,10 +1,11 @@
 {
   "name": "elefante-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The open, Git-native memory protocol for MCP agents",
   "type": "module",
   "bin": {
-    "elefante": "./dist/cli.js"
+    "elefante": "./dist/cli.js",
+    "elefante-mcp": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

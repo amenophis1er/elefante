@@ -1,0 +1,54 @@
+{
+  "name": "elefante",
+  "version": "0.1.0",
+  "description": "The open, Git-native memory protocol for MCP agents",
+  "type": "module",
+  "bin": {
+    "elefante": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "mcp": "node dist/cli.js mcp",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "ai-memory",
+    "mcp",
+    "git",
+    "ai-agents",
+    "claude",
+    "codex",
+    "memory-protocol",
+    "model-context-protocol"
+  ],
+  "author": "Amen",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "commander": "^13.1.0",
+    "gray-matter": "^4.0.3",
+    "nanoid": "^5.1.5",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

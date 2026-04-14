@@ -6,6 +6,7 @@ import { createMemory, readMemory, updateMemory, deleteMemory } from "./memory.j
 import { search, listMemories, invalidateCache } from "./indexer.js";
 import { isInitialized, pull } from "./vault.js";
 import { buildContext } from "./context.js";
+import { detectProfile } from "./profile.js";
 
 function errorResult(message: string) {
   return {
@@ -24,7 +25,13 @@ export async function startMcpServer(): Promise<void> {
   await pull();
   invalidateCache();
 
-  const contextBlock = buildContext();
+  // Auto-detect project profile from cwd
+  const detectedProfile = await detectProfile();
+  const contextBlock = buildContext({ profile: detectedProfile ?? undefined });
+
+  const profileNote = detectedProfile
+    ? `Current project profile: "${detectedProfile}". Memories written without an explicit profile will be scoped to this project. Use profile: "global" to store a memory that applies everywhere.`
+    : "No project detected. Memories will be stored globally.";
 
   const server = new McpServer(
     {
@@ -34,9 +41,11 @@ export async function startMcpServer(): Promise<void> {
     {
       instructions: [
         "You have access to Elefante, a persistent memory vault backed by Git.",
+        profileNote,
         "When the user asks you to remember something, store it using memory_write.",
         "When the user asks about their preferences, past decisions, or project context, search with memory_search first.",
         "When the user says 'what do you know about me' or similar, use memory_list or memory_search.",
+        "Memories of type 'user' or 'feedback' are typically global (apply to all projects). Memories of type 'project' or 'reference' are typically project-scoped.",
         "",
         "Here is the current memory context loaded from the vault:",
         "",
@@ -47,23 +56,35 @@ export async function startMcpServer(): Promise<void> {
 
   server.tool(
     "memory_write",
-    "Store a memory in the vault. Use type 'user' for user preferences/facts, 'feedback' for behavioral guidance, 'project' for active work context, 'reference' for external resource pointers.",
+    "Store a memory in the vault. Use type 'user' for user preferences/facts, 'feedback' for behavioral guidance, 'project' for active work context, 'reference' for external resource pointers." +
+      (detectedProfile
+        ? ` Current project: "${detectedProfile}". Omit profile to auto-scope to this project. Set profile to "global" for cross-project memories (user preferences, feedback).`
+        : ""),
     {
       name: z.string().min(1).max(100).describe("Short title for the memory (1-100 chars)"),
       type: z.enum(MEMORY_TYPES).describe("Memory type"),
       body: z.string().min(1).describe("Memory content"),
       description: z.string().max(200).optional().describe("One-line description (max 200 chars)"),
-      profile: z.string().optional().describe("Profile scope (omit for global)"),
+      profile: z.string().optional().describe("Profile scope. Omit to auto-scope to current project. Use 'global' for cross-project memories."),
       tags: z.array(z.string()).optional().describe("Free-form tags"),
     },
     async (args) => {
       try {
-        const memory = await createMemory(args);
+        // Resolve profile: "global" → no profile (null), omitted → detected project
+        let resolvedProfile: string | undefined;
+        if (args.profile === "global") {
+          resolvedProfile = undefined; // createMemory treats undefined as null (global)
+        } else {
+          resolvedProfile = args.profile ?? detectedProfile ?? undefined;
+        }
+
+        const memory = await createMemory({ ...args, profile: resolvedProfile });
+        const scope = memory.profile ? `scoped to ${memory.profile}` : "global";
         return {
           content: [
             {
               type: "text" as const,
-              text: `Stored memory ${memory.id}: "${memory.name}" (${memory.type})`,
+              text: `Stored memory ${memory.id}: "${memory.name}" (${memory.type}, ${scope})`,
             },
           ],
         };
@@ -105,12 +126,13 @@ export async function startMcpServer(): Promise<void> {
     {
       query: z.string().min(1).describe("Search query"),
       type: z.enum(MEMORY_TYPES).optional().describe("Filter by memory type"),
-      profile: z.string().optional().describe("Filter by profile"),
+      profile: z.string().optional().describe("Filter by profile. Omit to search current project + global. Use 'all' for everything, 'global' for global-only."),
       limit: z.number().int().min(1).max(50).default(10).describe("Max results"),
     },
     async ({ query, type, profile, limit }) => {
       try {
-        const results = await search(query, { type, profile }, limit);
+        const resolvedProfile = resolveProfileFilter(profile, detectedProfile);
+        const results = await search(query, { type, profile: resolvedProfile }, limit);
         if (results.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No memories found matching your query." }],
@@ -133,14 +155,15 @@ export async function startMcpServer(): Promise<void> {
     "List memories in the vault. Returns metadata only (no body). Use memory_read to get full content.",
     {
       type: z.enum(MEMORY_TYPES).optional().describe("Filter by memory type"),
-      profile: z.string().optional().describe("Filter by profile"),
+      profile: z.string().optional().describe("Filter by profile. Omit to list current project + global. Use 'all' for everything, 'global' for global-only."),
       sort: z.enum(["updated", "importance", "created"]).default("updated").describe("Sort order"),
       limit: z.number().int().min(1).max(100).default(20).describe("Max results"),
       offset: z.number().int().min(0).default(0).describe("Offset for pagination"),
     },
     async ({ type, profile, sort, limit, offset }) => {
       try {
-        const metas = listMemories({ type, profile, sort }, limit, offset);
+        const resolvedProfile = resolveProfileFilter(profile, detectedProfile);
+        const metas = listMemories({ type, profile: resolvedProfile, sort }, limit, offset);
         if (metas.length === 0) {
           return {
             content: [{ type: "text" as const, text: "No memories found." }],
@@ -212,6 +235,22 @@ export async function startMcpServer(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+/**
+ * Resolve the profile filter for search/list operations.
+ * - "all" → undefined (no filter, return everything)
+ * - "global" → "__global__" (sentinel that indexer treats as null-only)
+ * - omitted → detected profile (current project + global)
+ * - explicit value → use as-is
+ */
+function resolveProfileFilter(
+  profile: string | undefined,
+  detectedProfile: string | null
+): string | undefined {
+  if (profile === "all") return undefined;
+  if (profile === "global") return "__global__";
+  return profile ?? detectedProfile ?? undefined;
 }
 
 function truncate(text: string, maxLength: number): string {

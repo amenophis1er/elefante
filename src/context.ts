@@ -33,6 +33,9 @@ export function buildContext(options: ContextOptions = {}): string {
     memories = memories.filter(
       (m) => m.profile === null || m.profile === profile
     );
+  } else {
+    // No profile detected — only show global memories, not every project's
+    memories = memories.filter((m) => m.profile === null);
   }
 
   // Sort: type priority first, then importance DESC, then recency

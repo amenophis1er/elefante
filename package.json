@@ -1,5 +1,5 @@
 {
-  "name": "elefante",
+  "name": "elefante-mcp",
   "version": "0.1.0",
   "description": "The open, Git-native memory protocol for MCP agents",
   "type": "module",
@@ -22,7 +22,8 @@
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "mcp": "node dist/cli.js mcp",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ai-memory",
@@ -36,6 +37,14 @@
   ],
   "author": "Amen",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amenophis1er/elefante.git"
+  },
+  "homepage": "https://github.com/amenophis1er/elefante#readme",
+  "bugs": {
+    "url": "https://github.com/amenophis1er/elefante/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "commander": "^13.1.0",

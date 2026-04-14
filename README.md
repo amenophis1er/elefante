@@ -30,7 +30,7 @@ Elefante takes a different approach. Instead of optimizing for retrieval quality
 
 ```bash
 # Install
-npm install -g elefante
+npm install -g elefante-mcp
 
 # Initialize vault (uses a private GitHub repo as storage)
 elefante init git@github.com:yourname/my-memory.git
@@ -59,7 +59,7 @@ Add Elefante to any MCP-compatible agent with one config block.
   "mcpServers": {
     "elefante": {
       "command": "npx",
-      "args": ["-y", "elefante", "mcp"]
+      "args": ["-y", "elefante-mcp", "mcp"]
     }
   }
 }
@@ -67,23 +67,66 @@ Add Elefante to any MCP-compatible agent with one config block.
 
 **Cursor / VS Code / Codex** — same config. Any agent that speaks MCP can read and write to the same vault.
 
-> **Tip:** Agents won't automatically search Elefante unless told to. Add a line to your project's `CLAUDE.md` (or equivalent agent instructions):
-> ```
-> When recalling or storing user preferences, context, or feedback,
-> use the elefante MCP tools (memory_search, memory_write, etc.).
-> ```
-> Or just ask explicitly: *"Search my elefante memory for..."*
+Once connected, your agent gets 6 tools: `memory_write`, `memory_read`, `memory_search`, `memory_list`, `memory_update`, `memory_delete`.
 
-Once connected, your agent gets 6 tools:
+### Auto-Discovery
 
-| Tool | Description |
+Elefante injects your top memories directly into the agent's system prompt at startup via MCP `instructions`. The agent sees your preferences, feedback, and project context **without needing to search first**.
+
+No `CLAUDE.md` hacks. No "search my elefante memory" prompts. It just works.
+
+## Project-Aware Memory
+
+Elefante auto-detects which project you're in and scopes memories accordingly. No configuration needed.
+
+### How It Works
+
+When the MCP server starts, it reads the git remote from your working directory:
+
+```
+~/Projects/acme-api/   →  git remote = github.com:you/acme-api.git
+                       →  profile = "you/acme-api"
+                       →  memories scoped to this project
+
+~/Projects/my-cli/     →  git remote = github.com:you/my-cli.git
+                       →  profile = "you/my-cli"
+                       →  different project, different memories
+```
+
+### What Gets Scoped
+
+| You say | What happens |
 |---|---|
-| `memory_write` | Store a memory |
-| `memory_read` | Retrieve a memory by ID |
-| `memory_search` | Search by keyword |
-| `memory_list` | List memories with filters |
-| `memory_update` | Update an existing memory |
-| `memory_delete` | Delete a memory |
+| "Remember this project uses Postgres 16" | Stored with `profile: you/acme-api` (project-scoped) |
+| "Remember I prefer Bun over npm" | Agent stores with `profile: global` → `null` (applies everywhere) |
+| "Remember the staging URL is staging.acme.io" | Stored with `profile: you/acme-api` (project-scoped) |
+
+The agent decides based on context. User preferences and behavioral feedback are typically global. Project details and references are typically scoped.
+
+### What You See When You Search
+
+```
+Working in acme-api:
+  ✓ "Uses Postgres 16"              (profile: you/acme-api)
+  ✓ "Prefers Bun over npm"          (profile: null — global)
+  ✗ "Uses SQLite"                   (profile: you/my-cli — different project)
+
+Working in my-cli:
+  ✓ "Uses SQLite"                   (profile: you/my-cli)
+  ✓ "Prefers Bun over npm"          (profile: null — global)
+  ✗ "Uses Postgres 16"             (profile: you/acme-api — different project)
+```
+
+Global memories always show up. Project memories only show up in their project.
+
+### Escape Hatches
+
+| Profile value | Meaning |
+|---|---|
+| *(omitted)* | Auto-scope to detected project |
+| `"global"` | Explicitly global — no project scope |
+| `"all"` | Search/list across every project |
+| `"owner/other-repo"` | Explicitly target a different project |
 
 ## What a Memory Looks Like
 
@@ -95,7 +138,7 @@ id: mem_a1b2c3d4e5f6
 type: feedback
 name: No database mocking in tests
 description: Integration tests must use real database connections
-profile: proj_acme-api
+profile: you/acme-api
 importance: 3
 tags: [testing, database]
 created_at: "2026-04-14T10:30:00Z"
@@ -151,12 +194,12 @@ Every write is `remember:`. Every update is `update:`. Every delete is `forget:`
 
 Four types. Intentionally constrained — a small taxonomy forces good classification.
 
-| Type | What to store | Example |
+| Type | What to store | Typically scoped to |
 |---|---|---|
-| `user` | Facts about you — role, preferences, expertise | "Prefers TypeScript strict mode" |
-| `feedback` | Agent behavior guidance — corrections, confirmations | "Don't mock the database in tests" |
-| `project` | Active work context — goals, deadlines, decisions | "Migrating to GraphQL by Q3 2026" |
-| `reference` | External pointers — URLs, dashboards, tools | "Oncall dashboard at grafana.internal/..." |
+| `user` | Facts about you — role, preferences, expertise | Global |
+| `feedback` | Agent behavior guidance — corrections, confirmations | Global |
+| `project` | Active work context — goals, deadlines, decisions | Project |
+| `reference` | External pointers — URLs, dashboards, tools | Project |
 
 ## Authentication
 
@@ -197,6 +240,7 @@ Elefante doesn't compete on retrieval quality. It competes on ownership.
 | **Agent-agnostic** | Any MCP agent | Single vendor | Yes |
 | **Zero infrastructure** | Git + local process | N/A (managed) | Server + database |
 | **Offline access** | Local clone | No | No |
+| **Auto project scoping** | Detects git remote | Per-conversation | Manual |
 | **Semantic search** | Not yet (planned) | Yes | Yes |
 
 > **"Why not Obsidian + MCP plugin?"** — Obsidian is a tool for humans that agents can access. Elefante is a tool for agents that humans can access. Same data format (Markdown + Git), different design center.

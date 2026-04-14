@@ -167,7 +167,13 @@ export async function search(
 
     // Apply filters
     if (filters?.type && meta.type !== filters.type) continue;
-    if (filters?.profile && meta.profile !== filters.profile && meta.profile !== null) continue;
+    if (filters?.profile === "__global__") {
+      // "global" sentinel: only return memories with no profile
+      if (meta.profile !== null) continue;
+    } else if (filters?.profile) {
+      // Include memories matching the profile OR global (null) memories
+      if (meta.profile !== filters.profile && meta.profile !== null) continue;
+    }
 
     // Recency boost
     const ageMs = nowMs - new Date(meta.updated_at).getTime();
@@ -214,7 +220,9 @@ export function listMemories(
   if (filters?.type) {
     results = results.filter((m) => m.type === filters.type);
   }
-  if (filters?.profile) {
+  if (filters?.profile === "__global__") {
+    results = results.filter((m) => m.profile === null);
+  } else if (filters?.profile) {
     results = results.filter(
       (m) => m.profile === filters.profile || m.profile === null
     );

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.amenophis1er/elefante",
+  "description": "Open, Git-native memory protocol for MCP agents. Portable, versioned, human-editable.",
+  "repository": {
+    "url": "https://github.com/amenophis1er/elefante",
+    "source": "github"
+  },
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "elefante-mcp",
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

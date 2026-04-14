@@ -50,9 +50,19 @@ elefante status
 
 ## Connect to Your Agent
 
-Add Elefante to any MCP-compatible agent with one config block.
+**From the terminal** (before starting Claude Code):
 
-**Claude Code:**
+```bash
+claude mcp add --scope user elefante -- npx -y elefante-mcp mcp
+```
+
+**From inside Claude Code** (during a session):
+
+```
+/mcp add --scope user elefante -- npx -y elefante-mcp mcp
+```
+
+**Or manually** — add to your MCP config (`~/.claude.json`, `.cursor/mcp.json`, etc.):
 
 ```json
 {

@@ -7,7 +7,7 @@ import type { AuthMethod } from "./types.js";
 
 const exec = promisify(execFile);
 
-export const VAULT_DIR = join(homedir(), ".elefante", "vault");
+export const VAULT_DIR = process.env.ELEFANTE_VAULT_DIR ?? join(homedir(), ".elefante", "vault");
 const CONFIG_PATH = join(homedir(), ".elefante", "config.json");
 
 export async function resolveAuth(): Promise<AuthMethod> {

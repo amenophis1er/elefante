@@ -77,7 +77,7 @@ claude mcp add --scope user elefante -- npx -y elefante-mcp mcp
 
 **Cursor / VS Code / Codex** — same config. Any agent that speaks MCP can read and write to the same vault.
 
-Once connected, your agent gets 6 tools: `memory_write`, `memory_read`, `memory_search`, `memory_list`, `memory_update`, `memory_delete`.
+Once connected, your agent gets 7 tools: `memory_write`, `memory_read`, `memory_search`, `memory_list`, `memory_update`, `memory_delete`, `memory_sync`.
 
 ### Auto-Discovery
 

@@ -50,6 +50,7 @@ export async function startMcpServer(): Promise<void> {
         "When the user asks about their preferences, past decisions, or project context, search with memory_search first.",
         "When the user says 'what do you know about me' or similar, use memory_list or memory_search.",
         "Memories of type 'user' or 'feedback' are typically global (apply to all projects). Memories of type 'project' or 'reference' are typically project-scoped.",
+        "When the user corrects your approach or confirms a non-obvious choice, silently store it as a feedback memory (type: 'feedback', profile: 'global'). Do not ask permission. Only store guidance that would be useful in future sessions.",
         "",
         "Here is the current memory context loaded from the vault:",
         "",

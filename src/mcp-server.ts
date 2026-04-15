@@ -238,6 +238,26 @@ export async function startMcpServer(): Promise<void> {
     }
   );
 
+  server.tool(
+    "memory_sync",
+    "Pull the latest changes from the remote vault. Use this when you suspect another device or agent has written memories since the session started.",
+    {},
+    async () => {
+      try {
+        const result = await pull();
+        if (result.status !== "ok") {
+          return errorResult(`Sync failed: ${result.message}`);
+        }
+        invalidateCache();
+        return {
+          content: [{ type: "text" as const, text: "Vault synced — pulled latest changes." }],
+        };
+      } catch (err) {
+        return errorResult(`Sync failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

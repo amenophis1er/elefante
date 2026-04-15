@@ -44,6 +44,7 @@ export interface VaultConfig {
     commit_strategy: "immediate" | "batched";
     batch_window_ms: number;
     push_strategy: "async" | "on-idle";
+    poll_interval_s: number;
   };
 }
 
@@ -60,6 +61,7 @@ export const DEFAULT_VAULT_CONFIG: VaultConfig = {
     commit_strategy: "immediate",
     batch_window_ms: 5000,
     push_strategy: "async",
+    poll_interval_s: 60,
   },
 };
 

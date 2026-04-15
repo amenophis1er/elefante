@@ -13,6 +13,7 @@ sync:
   commit_strategy: immediate
   batch_window_ms: 5000
   push_strategy: async
+  poll_interval_s: 60
 `;
 
 /**

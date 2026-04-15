@@ -16,7 +16,8 @@ import {
   deleteVaultFile,
   vaultFileExists,
   commit,
-  pushAsync,
+  push,
+  pullBeforeWrite,
   getConfig,
 } from "./vault.js";
 import { VAULT_DIR } from "./auth.js";
@@ -79,6 +80,8 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
     last_accessed_at: null,
   };
 
+  await pullBeforeWrite();
+
   const path = memoryPath(memory.type, id);
   writeVaultFile(path, serializeMemory(memory));
 
@@ -87,7 +90,11 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
   }
 
   await commit(`remember: ${memory.name}`, [path, "index/"]);
-  pushAsync();
+  try {
+    await push();
+  } catch {
+    // Push failed — background sync loop will retry
+  }
 
   return memory;
 }
@@ -115,6 +122,8 @@ export async function touchMemory(id: string): Promise<void> {
 }
 
 export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | null> {
+  await pullBeforeWrite();
+
   const existing = readMemory(input.id);
   if (!existing) return null;
 
@@ -151,16 +160,23 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | n
     : [newPath, "index/"];
 
   await commit(`update: ${existing.name}`, filesToCommit);
-  pushAsync();
+  try {
+    await push();
+  } catch {
+    // Push failed — background sync loop will retry
+  }
 
   return existing;
 }
 
 export async function deleteMemory(id: string): Promise<boolean> {
+  await pullBeforeWrite();
+
   const memory = readMemory(id);
   if (!memory) return false;
 
   const path = memoryPath(memory.type, id);
+
   deleteVaultFile(path);
 
   const config = getConfig();
@@ -169,7 +185,11 @@ export async function deleteMemory(id: string): Promise<boolean> {
   }
 
   await commit(`forget: ${memory.name}`, [path, "index/"]);
-  pushAsync();
+  try {
+    await push();
+  } catch {
+    // Push failed — background sync loop will retry
+  }
 
   return true;
 }

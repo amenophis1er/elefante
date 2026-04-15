@@ -124,12 +124,6 @@ export async function push(): Promise<void> {
   await git(["push"]);
 }
 
-export function pushAsync(): void {
-  // Fire-and-forget push
-  git(["push"]).catch(() => {
-    // Silently fail — sync will catch up
-  });
-}
 
 export async function pull(): Promise<SyncResult> {
   try {
@@ -143,6 +137,80 @@ export async function pull(): Promise<SyncResult> {
     }
     return { status: "error", message };
   }
+}
+
+export async function fetch(): Promise<void> {
+  await git(["fetch", "origin"]);
+}
+
+export async function isBehind(): Promise<boolean> {
+  try {
+    const { stdout } = await git(["rev-list", "--count", "HEAD..@{u}"]);
+    return parseInt(stdout.trim(), 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function isAhead(): Promise<boolean> {
+  try {
+    const { stdout } = await git(["rev-list", "--count", "@{u}..HEAD"]);
+    return parseInt(stdout.trim(), 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Simple mutex to prevent syncOnce and write operations from interleaving
+let syncLock: Promise<void> | null = null;
+
+async function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
+  while (syncLock) {
+    await syncLock;
+  }
+  let resolve: () => void;
+  syncLock = new Promise((r) => { resolve = r; });
+  try {
+    return await fn();
+  } finally {
+    syncLock = null;
+    resolve!();
+  }
+}
+
+export async function pullBeforeWrite(): Promise<void> {
+  await withSyncLock(async () => {
+    const result = await pull();
+    if (result.status === "conflict") {
+      throw new Error(`Sync conflict — cannot write: ${result.message}`);
+    }
+    // "error" status (no remote, network down) is non-blocking
+  });
+}
+
+export async function syncOnce(onPulled?: () => void): Promise<void> {
+  await withSyncLock(async () => {
+    try {
+      await fetch();
+    } catch {
+      return; // Network error — try again next tick
+    }
+
+    if (await isBehind()) {
+      const result = await pull();
+      if (result.status === "ok") {
+        onPulled?.();
+      }
+    }
+
+    if (await isAhead()) {
+      try {
+        await push();
+      } catch {
+        // Push failed — will retry next tick
+      }
+    }
+  });
 }
 
 export async function getHeadCommit(): Promise<string | null> {

@@ -17,8 +17,17 @@ vi.mock("../../src/vault.js", async (importOriginal) => {
   return {
     ...original,
     pull: vi.fn().mockResolvedValue({ status: "ok", message: "mocked" }),
-    pushAsync: vi.fn(),
     push: vi.fn().mockResolvedValue(undefined),
+    fetch: vi.fn().mockResolvedValue(undefined),
+    isAhead: vi.fn().mockResolvedValue(false),
+    isBehind: vi.fn().mockResolvedValue(false),
+    pullBeforeWrite: vi.fn().mockResolvedValue(undefined),
+    syncOnce: vi.fn().mockResolvedValue(undefined),
+    getConfig: vi.fn().mockReturnValue({
+      index: { auto_rebuild: true },
+      memory: { max_body_length: 10000 },
+      sync: { commit_strategy: "immediate", batch_window_ms: 5000, push_strategy: "async", poll_interval_s: 60 },
+    }),
   };
 });
 

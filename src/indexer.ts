@@ -20,7 +20,7 @@ const STOP_WORDS = new Set([
   "some", "such", "very", "only", "over", "own", "same", "out",
 ]);
 
-function extractKeywords(text: string): string[] {
+export function extractKeywords(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^\w\s-]/g, " ")
@@ -29,7 +29,7 @@ function extractKeywords(text: string): string[] {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
-function extractTrigrams(text: string): string[] {
+export function extractTrigrams(text: string): string[] {
   const cleaned = text.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ");
   const trigrams: Set<string> = new Set();
   const words = cleaned.split(" ").filter((w) => w.length >= 3 && !STOP_WORDS.has(w));

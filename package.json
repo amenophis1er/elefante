@@ -24,6 +24,9 @@
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "mcp": "node dist/cli.js mcp",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -57,7 +60,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "typescript": "^5.8.3"
+    "@vitest/coverage-v8": "^4.1.4",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.4"
   },
   "engines": {
     "node": ">=20"

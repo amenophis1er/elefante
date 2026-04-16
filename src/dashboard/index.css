@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
+
+.prose :not(pre) > code {
+  background-color: #fce4e4;
+  color: #c0392b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  border: 1px solid #f5c6c6;
+}
+
+.dark .prose :not(pre) > code {
+  background-color: #3b1f1f;
+  color: #f5a3a3;
+  border-color: #5c2b2b;
+}
+
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
+}

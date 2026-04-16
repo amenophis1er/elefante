@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Background rounded square -->
+  <rect x="4" y="4" width="112" height="112" rx="24" fill="#7B7FBF"/>
+  <!-- Geometric lowercase "e" — clean arc with horizontal bar and open tail -->
+  <circle cx="60" cy="62" r="24" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="120 31" stroke-dashoffset="-10"/>
+  <line x1="38" y1="58" x2="82" y2="58" stroke="white" stroke-width="8" stroke-linecap="round"/>
+</svg>

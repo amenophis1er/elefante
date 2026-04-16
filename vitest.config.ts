@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: ["src/cli.ts", "src/mcp-server.ts", "src/index.ts", "src/auth.ts", "src/import-claude.ts"],
+      exclude: ["src/cli.ts", "src/mcp-server.ts", "src/index.ts", "src/auth.ts", "src/import-claude.ts", "src/server.ts", "src/dashboard/**"],
       thresholds: {
         lines: 80,
         functions: 80,

@@ -12,7 +12,7 @@ vi.mock("../../src/auth.js", () => ({
   resolveAuth: vi.fn(),
 }));
 
-import { rebuildIndex, search, listMemories, invalidateCache } from "../../src/indexer.js";
+import { rebuildIndex, search, listMemories, invalidateCache, stem } from "../../src/indexer.js";
 import { createMemory } from "../../src/memory.js";
 
 let cleanup: () => void;
@@ -184,5 +184,77 @@ describe("invalidateCache", () => {
 
     const afterCount = listMemories().length;
     expect(afterCount).toBe(beforeCount + 1);
+  });
+});
+
+describe("stem", () => {
+  it("strips common suffixes", () => {
+    expect(stem("testing")).toBe("test");
+    expect(stem("databases")).toBe("databas");
+    expect(stem("configured")).toBe("configur");
+    expect(stem("memories")).toBe("memory");
+    expect(stem("persistence")).toBe("persist");
+  });
+
+  it("preserves short words", () => {
+    expect(stem("db")).toBe("db");
+    expect(stem("api")).toBe("api");
+  });
+});
+
+describe("search v2 improvements", () => {
+  it("ranks name matches higher than body matches", async () => {
+    await createMemory({
+      name: "Linting rules",
+      type: "feedback",
+      body: "Some unrelated content about deployment",
+    });
+    await createMemory({
+      name: "Deployment pipeline",
+      type: "project",
+      body: "We use strict linting in the pipeline",
+    });
+    invalidateCache();
+
+    const results = await search("linting");
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    // "Linting rules" should rank first (name match > body match)
+    expect(results[0].memory.name).toBe("Linting rules");
+  });
+
+  it("finds memories via synonym: 'db' finds 'database'", async () => {
+    const results = await search("db");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.some((r) => r.memory.name === "Database testing")).toBe(true);
+  });
+
+  it("finds memories via stemming: 'persist' finds 'persistence'", async () => {
+    await createMemory({
+      name: "Data persistence layer",
+      type: "reference",
+      body: "We use SQLite for local persistence of session data",
+    });
+    invalidateCache();
+
+    const results = await search("persist");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.some((r) => r.memory.name === "Data persistence layer")).toBe(true);
+  });
+
+  it("boosts exact tag matches", async () => {
+    // "Database testing" has tag "database"
+    // Search for "database" should find it with high score
+    const results = await search("database");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    const dbResult = results.find((r) => r.memory.name === "Database testing");
+    expect(dbResult).toBeDefined();
+    // It should rank highly since both name and tag match
+    expect(results[0].memory.name).toBe("Database testing");
+  });
+
+  it("handles multi-word phrase queries", async () => {
+    const results = await search("strict mode");
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.some((r) => r.memory.name === "TypeScript preferences")).toBe(true);
   });
 });

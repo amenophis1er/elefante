@@ -21,14 +21,16 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
+    "build:dashboard": "vite build",
+    "dev": "concurrently -n api,vite -c blue,green \"node dist/cli.js serve --no-open --dev -p 3333\" \"vite\"",
+    "dev:ts": "tsc --watch",
     "start": "node dist/cli.js",
     "mcp": "node dist/cli.js mcp",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && npm run build:dashboard"
   },
   "keywords": [
     "ai-memory",
@@ -59,9 +61,20 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.15.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.4",
+    "concurrently": "^9.2.1",
+    "marked": "^18.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.8.3",
+    "vite": "^8.0.8",
     "vitest": "^4.1.4"
   },
   "engines": {

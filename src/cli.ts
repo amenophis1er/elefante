@@ -6,6 +6,7 @@ import { createMemory, readMemory, deleteMemory, updateMemory } from "./memory.j
 import { search, listMemories, rebuildIndex, invalidateCache } from "./indexer.js";
 import * as vault from "./vault.js";
 import { startMcpServer } from "./mcp-server.js";
+import { startServer } from "./server.js";
 import type { MemoryType } from "./types.js";
 import { MEMORY_TYPES } from "./types.js";
 import { discoverClaudeMemories, importClaudeMemories } from "./import-claude.js";
@@ -213,6 +214,26 @@ program
     invalidateCache();
     await rebuildIndex();
     console.log("Index rebuilt.");
+  });
+
+program
+  .command("serve")
+  .description("Start the web dashboard")
+  .option("-p, --port <port>", "Port number (default: random)")
+  .option("--no-open", "Don't open the browser")
+  .option("--dev", "Dev mode: disable token auth (for use behind Vite proxy)")
+  .action(async (opts) => {
+    ensureInit();
+    const port = opts.port ? parseInt(opts.port, 10) : undefined;
+    const { url } = await startServer({ port, open: opts.open, dev: opts.dev });
+    if (opts.dev) {
+      console.log(`\nElefante API (dev mode, no auth)`);
+      console.log(`http://127.0.0.1:${port ?? "?"}\n`);
+    } else {
+      console.log(`\nElefante dashboard`);
+      console.log(`${url}\n`);
+    }
+    console.log(`Press Ctrl+C to stop.`);
   });
 
 program

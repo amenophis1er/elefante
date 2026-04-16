@@ -114,9 +114,7 @@ export function vaultFileExists(relativePath: string): boolean {
 }
 
 export async function commit(message: string, files: string[]): Promise<void> {
-  for (const file of files) {
-    await git(["add", file]);
-  }
+  await git(["add", "--", ...files]);
   await git(["commit", "-m", message]);
 }
 
@@ -211,6 +209,73 @@ export async function syncOnce(onPulled?: () => void): Promise<void> {
       }
     }
   });
+}
+
+// --- Batched commit system ---
+
+const pendingFiles: Set<string> = new Set();
+const pendingMessages: string[] = [];
+let batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleBatch(): void {
+  if (batchTimer) return;
+  const config = getConfig();
+  const windowMs = Math.max(config.sync.batch_window_ms ?? 5000, 1000);
+  batchTimer = setTimeout(() => {
+    batchTimer = null;
+    flushBatch().catch(() => {});
+  }, windowMs);
+  batchTimer.unref();
+}
+
+export async function flushBatch(): Promise<void> {
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+    batchTimer = null;
+  }
+  if (pendingFiles.size === 0) return;
+
+  const files = [...pendingFiles];
+  const messages = [...pendingMessages];
+  // Don't clear yet — re-add on failure
+
+  await withSyncLock(async () => {
+    try {
+      await commit(messages.length === 1 ? messages[0] : `batch: ${messages.join("; ")}`, files);
+    } catch {
+      // Commit failed — re-add files so next flush retries
+      for (const f of files) pendingFiles.add(f);
+      return;
+    }
+    // Commit succeeded — safe to clear
+    pendingFiles.clear();
+    pendingMessages.length = 0;
+    try {
+      await push();
+    } catch {
+      // Push failed — background sync loop will retry
+    }
+  });
+}
+
+export function addToBatch(files: string[]): void {
+  for (const f of files) pendingFiles.add(f);
+  scheduleBatch();
+}
+
+export async function commitOrBatch(message: string, files: string[]): Promise<void> {
+  const config = getConfig();
+  if (config.sync.commit_strategy === "batched") {
+    addToBatch(files);
+    pendingMessages.push(message);
+  } else {
+    await commit(message, files);
+    try {
+      await push();
+    } catch {
+      // Push failed — background sync loop will retry
+    }
+  }
 }
 
 export async function getHeadCommit(): Promise<string | null> {

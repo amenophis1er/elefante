@@ -44,7 +44,7 @@ export async function startMcpServer(): Promise<void> {
     },
     {
       instructions: [
-        "You have access to Elefante, a persistent memory vault backed by Git.",
+        `You have access to Elefante v${pkg.version}, a persistent memory vault backed by Git.`,
         profileNote,
         "When the user asks you to remember something, store it using memory_write.",
         "When the user asks about their preferences, past decisions, or project context, search with memory_search first.",

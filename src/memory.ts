@@ -15,8 +15,8 @@ import {
   writeVaultFile,
   deleteVaultFile,
   vaultFileExists,
-  commit,
-  push,
+  commitOrBatch,
+  addToBatch,
   pullBeforeWrite,
   getConfig,
 } from "./vault.js";
@@ -89,12 +89,7 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
     await rebuildIndex();
   }
 
-  await commit(`remember: ${memory.name}`, [path, "index/"]);
-  try {
-    await push();
-  } catch {
-    // Push failed — background sync loop will retry
-  }
+  await commitOrBatch(`remember: ${memory.name}`, [path, "index/"]);
 
   return memory;
 }
@@ -119,6 +114,8 @@ export async function touchMemory(id: string): Promise<void> {
 
   const path = memoryPath(memory.type, id);
   writeVaultFile(path, serializeMemory(memory));
+  // Always batch touches — they're low-priority metadata updates
+  addToBatch([path]);
 }
 
 export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | null> {
@@ -159,12 +156,7 @@ export async function updateMemory(input: UpdateMemoryInput): Promise<Memory | n
     ? [oldPath, newPath, "index/"]
     : [newPath, "index/"];
 
-  await commit(`update: ${existing.name}`, filesToCommit);
-  try {
-    await push();
-  } catch {
-    // Push failed — background sync loop will retry
-  }
+  await commitOrBatch(`update: ${existing.name}`, filesToCommit);
 
   return existing;
 }
@@ -184,12 +176,7 @@ export async function deleteMemory(id: string): Promise<boolean> {
     await rebuildIndex();
   }
 
-  await commit(`forget: ${memory.name}`, [path, "index/"]);
-  try {
-    await push();
-  } catch {
-    // Push failed — background sync loop will retry
-  }
+  await commitOrBatch(`forget: ${memory.name}`, [path, "index/"]);
 
   return true;
 }

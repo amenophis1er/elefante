@@ -242,7 +242,9 @@ export async function startServer(options: ServeOptions = {}): Promise<{ url: st
 
       resolve({
         url,
-        close: () => server.close(),
+        close: () => {
+          vault.flushBatch().catch(() => {}).finally(() => server.close());
+        },
       });
     });
   });

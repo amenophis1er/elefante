@@ -8,7 +8,7 @@ import { z } from "zod";
 import { MEMORY_TYPES } from "./types.js";
 import { createMemory, readMemory, updateMemory, deleteMemory } from "./memory.js";
 import { search, listMemories, invalidateCache } from "./indexer.js";
-import { isInitialized, pull, syncOnce, getConfig } from "./vault.js";
+import { isInitialized, pull, syncOnce, getConfig, flushBatch } from "./vault.js";
 import { buildContext } from "./context.js";
 import { detectProfile } from "./profile.js";
 
@@ -273,13 +273,14 @@ export async function startMcpServer(): Promise<void> {
   const prevOnClose = server.server.onclose;
   server.server.onclose = () => {
     clearInterval(syncTimer);
+    flushBatch().catch(() => {});
     prevOnClose?.();
   };
 
   // Clean up on process signals
   const cleanup = () => {
     clearInterval(syncTimer);
-    process.exit(0);
+    flushBatch().then(() => process.exit(0)).catch(() => process.exit(0));
   };
   process.once("SIGINT", cleanup);
   process.once("SIGTERM", cleanup);

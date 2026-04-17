@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api, type MemoryMeta, type Memory, type VaultStatus } from "./lib/api";
 import { useTheme } from "./lib/theme";
 import { MemoryList } from "./components/MemoryList";
@@ -11,6 +11,11 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 
 type View = "memories" | "overview";
 
+type FilterState = { type?: string; sort?: string; profile?: string; tag?: string };
+const DEFAULT_FILTERS: FilterState = { sort: "updated" };
+const LIST_LIMIT = 10000;
+const SEARCH_LIMIT = 1000;
+
 export default function App() {
   const { theme, cycle } = useTheme();
   const [view, setView] = useState<View>("overview");
@@ -19,26 +24,20 @@ export default function App() {
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<{ type?: string; sort?: string; profile?: string; tag?: string }>({});
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [searchQuery, setSearchQuery] = useState("");
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-
-  const PAGE_SIZE = 30;
 
   const loadMemories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (searchQuery) {
-        const results = await api.search(searchQuery, { type: filters.type, limit: 50 });
+        const results = await api.search(searchQuery, { type: filters.type, profile: filters.profile, limit: SEARCH_LIMIT });
         setMemories(results.map((r) => ({ ...r.memory, path: "" })));
-        setHasMore(false);
       } else {
-        const list = await api.listMemories({ ...filters, limit: PAGE_SIZE, offset: 0 });
+        const list = await api.listMemories({ ...filters, limit: LIST_LIMIT, offset: 0 });
         setMemories(list);
-        setHasMore(list.length >= PAGE_SIZE);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load memories");
@@ -47,25 +46,19 @@ export default function App() {
     }
   }, [filters, searchQuery]);
 
-  const loadMore = async () => {
-    setLoadingMore(true);
-    try {
-      const list = await api.listMemories({ ...filters, limit: PAGE_SIZE, offset: memories.length });
-      setMemories((prev) => [...prev, ...list]);
-      setHasMore(list.length >= PAGE_SIZE);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  const profiles = useMemo(
+    () => [...new Set(memories.map((m) => m.profile ?? "global"))].sort(),
+    [memories]
+  );
+  const allTags = useMemo(
+    () => [...new Set(memories.flatMap((m) => m.tags))].sort(),
+    [memories]
+  );
 
-  const profiles = [...new Set(memories.map((m) => m.profile ?? "global"))].sort();
-  const allTags = [...new Set(memories.flatMap((m) => m.tags))].sort();
-
-  const filteredMemories = filters.tag
-    ? memories.filter((m) => m.tags.includes(filters.tag!))
-    : memories;
+  const filteredMemories = useMemo(
+    () => (filters.tag ? memories.filter((m) => m.tags.includes(filters.tag!)) : memories),
+    [memories, filters.tag]
+  );
 
   const loadStatus = useCallback(async () => {
     try {
@@ -187,7 +180,12 @@ export default function App() {
             status={status}
             memories={filteredMemories}
             onProfileClick={(profile) => {
-              setFilters({ profile: profile === "global" ? undefined : profile });
+              setFilters({ ...DEFAULT_FILTERS, profile: profile === "global" ? undefined : profile });
+              setView("memories");
+            }}
+            onTotalClick={() => {
+              setFilters(DEFAULT_FILTERS);
+              setSearchQuery("");
               setView("memories");
             }}
           />
@@ -214,8 +212,12 @@ export default function App() {
                 onSortChange={(sort) => setFilters((f) => ({ ...f, sort }))}
                 onProfileChange={(profile) => setFilters((f) => ({ ...f, profile }))}
                 onTagChange={(tag) => setFilters((f) => ({ ...f, tag }))}
-                onReset={() => { setFilters({}); setSearchQuery(""); }}
+                onReset={() => { setFilters(DEFAULT_FILTERS); setSearchQuery(""); }}
               />
+            </div>
+            {/* Memory count */}
+            <div className="shrink-0 px-4 py-2 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400">
+              {loading ? "Loading..." : `${filteredMemories.length} ${filteredMemories.length === 1 ? "memory" : "memories"}`}
             </div>
             {/* Memory list */}
             <div className="flex-1 overflow-y-auto">
@@ -226,22 +228,19 @@ export default function App() {
                   memories={filteredMemories}
                   selectedId={selected?.id ?? null}
                   onSelect={openMemory}
-                  hasMore={hasMore && !filters.tag}
-                  loadingMore={loadingMore}
-                  onLoadMore={loadMore}
                 />
               )}
             </div>
           </div>
 
           {/* Right panel: detail — full width on mobile, flex on desktop */}
-          <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 flex-col overflow-y-auto`}>
+          <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 flex-col min-h-0`}>
             {selected ? (
-              <div className="p-4 md:p-6">
+              <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6">
                 {/* Mobile back button */}
                 <button
                   onClick={() => setSelected(null)}
-                  className="md:hidden text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center gap-1 mb-4 transition-colors"
+                  className="md:hidden shrink-0 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center gap-1 mb-4 transition-colors"
                 >
                   <span>&larr;</span> Back to list
                 </button>

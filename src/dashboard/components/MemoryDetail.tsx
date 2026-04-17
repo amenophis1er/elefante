@@ -51,9 +51,9 @@ export function MemoryDetail({ memory, onDelete, onUpdate, onTagClick }: Props) 
   };
 
   return (
-    <div>
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Title + actions */}
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="shrink-0 flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0 flex-1">
           {editing ? (
             <div className="space-y-2">
@@ -116,7 +116,7 @@ export function MemoryDetail({ memory, onDelete, onUpdate, onTagClick }: Props) 
       </div>
 
       {/* Metadata row */}
-      <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
+      <div className="shrink-0 flex flex-wrap items-center gap-3 mb-4 text-sm">
         <span className={`px-2 py-0.5 rounded-full border font-medium text-xs ${TYPE_COLORS[memory.type] ?? ""}`}>
           {memory.type}
         </span>
@@ -134,7 +134,7 @@ export function MemoryDetail({ memory, onDelete, onUpdate, onTagClick }: Props) 
 
       {/* Tags */}
       {memory.tags.length > 0 && (
-        <div className="flex gap-1.5 mb-5">
+        <div className="shrink-0 flex gap-1.5 mb-5">
           {memory.tags.map((tag) => (
             <button
               key={tag}
@@ -148,17 +148,16 @@ export function MemoryDetail({ memory, onDelete, onUpdate, onTagClick }: Props) 
       )}
 
       {/* Body */}
-      <div className="border-t border-stone-200 dark:border-stone-800 pt-5">
+      <div className="flex-1 min-h-0 flex flex-col border-t border-stone-200 dark:border-stone-800 pt-5">
         {editing ? (
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            rows={15}
-            className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-md px-4 py-3 font-mono text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#7B7FBF] resize-y"
+            className="flex-1 min-h-0 w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-md px-4 py-3 font-mono text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#7B7FBF] resize-none"
           />
         ) : (
           <div
-            className="prose prose-stone dark:prose-invert prose-sm max-w-none"
+            className="flex-1 min-h-0 overflow-y-auto prose prose-stone dark:prose-invert prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: renderedBody }}
           />
         )}

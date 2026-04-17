@@ -25,12 +25,9 @@ interface Props {
   memories: MemoryMeta[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
 }
 
-export function MemoryList({ memories, selectedId, onSelect, hasMore, loadingMore, onLoadMore }: Props) {
+export function MemoryList({ memories, selectedId, onSelect }: Props) {
   if (memories.length === 0) {
     return (
       <div className="text-center text-stone-400 py-12 px-4">
@@ -89,17 +86,6 @@ export function MemoryList({ memories, selectedId, onSelect, hasMore, loadingMor
           </button>
         );
       })}
-      {hasMore && onLoadMore && (
-        <div className="p-3">
-          <button
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="w-full text-sm py-2 rounded-md text-[#7B7FBF] hover:bg-[#7B7FBF]/10 transition-colors disabled:opacity-50"
-          >
-            {loadingMore ? "Loading..." : "Load more"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

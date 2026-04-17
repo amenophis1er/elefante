@@ -7,9 +7,10 @@ interface Props {
   status: VaultStatus;
   memories: MemoryMeta[];
   onProfileClick?: (profile: string) => void;
+  onTotalClick?: () => void;
 }
 
-export function VaultOverview({ status, memories, onProfileClick }: Props) {
+export function VaultOverview({ status, memories, onProfileClick, onTotalClick }: Props) {
   const byType = memories.reduce<Record<string, number>>((acc, m) => {
     acc[m.type] = (acc[m.type] ?? 0) + 1;
     return acc;
@@ -44,10 +45,14 @@ export function VaultOverview({ status, memories, onProfileClick }: Props) {
 
       {/* Status cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className={`${card} px-4 py-3`}>
-          <p className="text-2xl font-semibold">{status.memoriesCount}</p>
+        <button
+          type="button"
+          onClick={onTotalClick}
+          className={`${card} px-4 py-3 text-left hover:bg-[#7B7FBF]/5 hover:border-[#7B7FBF]/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7B7FBF] transition-colors cursor-pointer group`}
+        >
+          <p className="text-2xl font-semibold group-hover:text-[#7B7FBF] transition-colors">{status.memoriesCount}</p>
           <p className="text-sm text-stone-500 dark:text-stone-400">Total memories</p>
-        </div>
+        </button>
         <div className={`${card} px-4 py-3`}>
           <p className="text-2xl font-semibold">{status.clean ? "Clean" : "Dirty"}</p>
           <p className="text-sm text-stone-500 dark:text-stone-400">Vault status</p>

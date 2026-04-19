@@ -29,11 +29,14 @@ export interface MemoryMeta {
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+  author: string;
+  access_count: number;
   path: string;
 }
 
 export interface Memory extends Omit<MemoryMeta, "path"> {
   body: string;
+  related?: string[];
 }
 
 export interface SearchResult {

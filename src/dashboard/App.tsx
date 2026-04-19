@@ -1,64 +1,113 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { api, type MemoryMeta, type Memory, type VaultStatus } from "./lib/api";
-import { useTheme } from "./lib/theme";
-import { MemoryList } from "./components/MemoryList";
-import { MemoryDetail } from "./components/MemoryDetail";
-import { SearchBar } from "./components/SearchBar";
-import { Filters } from "./components/Filters";
-import { VaultOverview } from "./components/VaultOverview";
-import { ThemeToggle } from "./components/ThemeToggle";
-import { ConfirmDialog } from "./components/ConfirmDialog";
+import { Header } from "./components/Timeline/Header";
+import { Sidebar } from "./components/Timeline/Sidebar";
+import { TimelineList, type SortBy, type Density } from "./components/Timeline/TimelineList";
+import { Inspector } from "./components/Timeline/Inspector";
+import { Toast } from "./components/Timeline/Toast";
+import { ConfirmDelete } from "./components/Timeline/ConfirmDelete";
+import { CommandPalette } from "./components/Timeline/CommandPalette";
+import { TweaksPanel } from "./components/Timeline/TweaksPanel";
+import type { MemoryType } from "./components/Timeline/tokens";
 
-type View = "memories" | "overview";
-
-type FilterState = { type?: string; sort?: string; profile?: string; tag?: string };
-const DEFAULT_FILTERS: FilterState = { sort: "updated" };
 const LIST_LIMIT = 10000;
-const SEARCH_LIMIT = 1000;
+const TWEAKS_KEY = "elefante.timeline.tweaks";
+
+interface Tweaks {
+  density: Density;
+  showAgents: boolean;
+  accent: string;
+  sortBy: SortBy;
+  dark: boolean;
+}
+
+const systemPrefersDark = (): boolean => {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
+const DEFAULT_TWEAKS: Tweaks = {
+  density: "comfortable",
+  showAgents: true,
+  accent: "#7B7FBF",
+  sortBy: "recent",
+  dark: false,
+};
+
+function loadTweaks(): Tweaks {
+  try {
+    const raw = localStorage.getItem(TWEAKS_KEY);
+    if (!raw) return { ...DEFAULT_TWEAKS, dark: systemPrefersDark() };
+    return { ...DEFAULT_TWEAKS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_TWEAKS;
+  }
+}
+
+function saveTweaks(t: Tweaks) {
+  try {
+    localStorage.setItem(TWEAKS_KEY, JSON.stringify(t));
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function App() {
-  const { theme, cycle } = useTheme();
-  const [view, setView] = useState<View>("overview");
   const [memories, setMemories] = useState<MemoryMeta[]>([]);
   const [selected, setSelected] = useState<Memory | null>(null);
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const [profile, setProfile] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<MemoryType | null>(null);
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [searchResults, setSearchResults] = useState<MemoryMeta[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQ, setPaletteQ] = useState("");
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [tweaks, setTweaks] = useState<Tweaks>(() => loadTweaks());
+
+  const toastTimer = useRef<number | null>(null);
+  const showToast = useCallback((msg: string) => {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimer.current = null;
+    }, 2400);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  const updateTweaks = useCallback((patch: Partial<Tweaks>) => {
+    setTweaks((prev) => {
+      const next = { ...prev, ...patch };
+      saveTweaks(next);
+      return next;
+    });
+  }, []);
 
   const loadMemories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      if (searchQuery) {
-        const results = await api.search(searchQuery, { type: filters.type, profile: filters.profile, limit: SEARCH_LIMIT });
-        setMemories(results.map((r) => ({ ...r.memory, path: "" })));
-      } else {
-        const list = await api.listMemories({ ...filters, limit: LIST_LIMIT, offset: 0 });
-        setMemories(list);
-      }
+      const list = await api.listMemories({ sort: "updated", limit: LIST_LIMIT });
+      setMemories(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load memories");
     } finally {
       setLoading(false);
     }
-  }, [filters, searchQuery]);
-
-  const profiles = useMemo(
-    () => [...new Set(memories.map((m) => m.profile ?? "global"))].sort(),
-    [memories]
-  );
-  const allTags = useMemo(
-    () => [...new Set(memories.flatMap((m) => m.tags))].sort(),
-    [memories]
-  );
-
-  const filteredMemories = useMemo(
-    () => (filters.tag ? memories.filter((m) => m.tags.includes(filters.tag!)) : memories),
-    [memories, filters.tag]
-  );
+  }, []);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -73,209 +122,299 @@ export default function App() {
     loadStatus();
   }, [loadMemories, loadStatus]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty("--primary", tweaks.accent);
+  }, [tweaks.accent]);
+
+  useEffect(() => {
+    if (tweaks.dark) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  }, [tweaks.dark]);
+
+  useEffect(() => {
+    const query = q.trim();
+    if (!query) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const handle = window.setTimeout(async () => {
+      try {
+        const results = await api.search(query, {
+          profile: profile ?? undefined,
+          type: typeFilter ?? undefined,
+          limit: 500,
+        });
+        if (cancelled) return;
+        setSearchResults(results.map((r) => ({ ...r.memory, path: "" })));
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Search failed");
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [q, profile, typeFilter]);
+
+  const createRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      } else if (isMod && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        createRef.current();
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setConfirmDel(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const source = searchResults ?? memories;
+    return source.filter(
+      (m) =>
+        (!profile || (m.profile ?? "global") === profile) &&
+        (!typeFilter || m.type === typeFilter) &&
+        (!agentFilter || m.author === agentFilter)
+    );
+  }, [searchResults, memories, profile, typeFilter, agentFilter]);
+
   const openMemory = async (id: string) => {
     try {
       const memory = await api.getMemory(id);
       setSelected(memory);
+      setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load memory");
     }
   };
 
-  const handleDeleteRequest = (id: string) => {
-    setDeleteTarget(id);
+  const clearFilters = () => {
+    setProfile(null);
+    setTypeFilter(null);
+    setAgentFilter(null);
+    setQ("");
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
+  const handleSave = async (
+    id: string,
+    data: { name?: string; body?: string; description?: string; tags?: string[]; type?: string }
+  ) => {
     try {
-      await api.deleteMemory(deleteTarget);
-      setSelected(null);
-      setDeleteTarget(null);
-      loadMemories();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete");
-      setDeleteTarget(null);
-    }
-  };
-
-  const handleUpdate = async (id: string, data: { name?: string; body?: string; description?: string; tags?: string[] }) => {
-    try {
+      if (id.startsWith("draft_")) {
+        const created = await api.createMemory({
+          name: data.name?.trim() || "Untitled memory",
+          type: (data.type as MemoryType) ?? "feedback",
+          body: data.body?.trim() || "Write your memory here.",
+          description: data.description,
+          profile: profile ?? undefined,
+        });
+        await loadMemories();
+        loadStatus();
+        setSelected(created);
+        setEditing(false);
+        showToast("Remembered");
+        return;
+      }
       const updated = await api.updateMemory(id, data);
       setSelected(updated);
       loadMemories();
+      loadStatus();
+      setEditing(false);
+      showToast("Saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update");
+      setError(err instanceof Error ? err.message : "Failed to save");
     }
   };
 
-  const handleSync = async () => {
+  const handleCancel = () => {
+    if (selected?.id.startsWith("draft_")) {
+      setSelected(null);
+    }
+    setEditing(false);
+  };
+
+  const handleDeleteRequest = (id: string) => {
+    setConfirmDel(id);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmDel) return;
     try {
-      await api.sync();
+      await api.deleteMemory(confirmDel);
+      setSelected(null);
+      setConfirmDel(null);
       loadMemories();
       loadStatus();
+      showToast("Forgotten — preserved in git history");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      setError(err instanceof Error ? err.message : "Failed to delete");
+      setConfirmDel(null);
     }
   };
 
+  const handleCreate = () => {
+    const draft: Memory = {
+      id: `draft_${Math.random().toString(16).slice(2, 10)}`,
+      type: "feedback",
+      name: "",
+      body: "",
+      description: null,
+      profile: profile ?? null,
+      importance: 1,
+      tags: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      last_accessed_at: null,
+      author: "dashboard",
+      access_count: 0,
+    };
+    setSelected(draft);
+    setEditing(true);
+  };
+
+  createRef.current = handleCreate;
+
   return (
-    <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
-      {/* Header */}
-      <header className="shrink-0 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-        <div className="px-6 py-3 flex items-center justify-between">
-          <button
-            onClick={() => { setView("overview"); }}
-            className="flex items-center gap-2.5 hover:opacity-70 transition-opacity"
-          >
-            <svg viewBox="0 0 120 120" fill="none" className="w-7 h-7">
-              <rect x="4" y="4" width="112" height="112" rx="24" fill="#7B7FBF"/>
-              <circle cx="60" cy="62" r="24" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeDasharray="120 31" strokeDashoffset="-10"/>
-              <line x1="38" y1="58" x2="82" y2="58" stroke="white" strokeWidth="8" strokeLinecap="round"/>
-            </svg>
-            <h1 className="text-lg font-semibold tracking-tight text-[#2D2F45] dark:text-stone-100">elefante</h1>
-          </button>
-          <nav className="flex items-center gap-3">
-            <button
-              onClick={() => setView("overview")}
-              className={`text-sm px-3 py-1.5 rounded-md transition-colors ${view === "overview" ? "bg-[#7B7FBF]/10 text-[#7B7FBF]" : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"}`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setView("memories")}
-              className={`text-sm px-3 py-1.5 rounded-md transition-colors ${view === "memories" ? "bg-[#7B7FBF]/10 text-[#7B7FBF]" : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"}`}
-            >
-              Memories
-            </button>
-            <button
-              onClick={handleSync}
-              className="text-sm px-3 py-1.5 rounded-md text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-              title="Sync vault"
-            >
-              Sync
-            </button>
-            <ThemeToggle theme={theme} onCycle={cycle} />
-          </nav>
-        </div>
-      </header>
-
-      {/* Error banner */}
-      {error && (
-        <div className="shrink-0 px-6 pt-3">
-          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2.5 rounded-lg text-sm flex justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 dark:hover:text-red-300 font-medium ml-4">
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main content */}
-      {view === "overview" && status && (
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-5xl mx-auto">
-            <VaultOverview
-            status={status}
-            memories={filteredMemories}
-            onProfileClick={(profile) => {
-              setFilters({ ...DEFAULT_FILTERS, profile: profile === "global" ? undefined : profile });
-              setView("memories");
-            }}
-            onTotalClick={() => {
-              setFilters(DEFAULT_FILTERS);
-              setSearchQuery("");
-              setView("memories");
-            }}
-          />
-          </div>
-        </main>
-      )}
-
-      {view === "memories" && (
-        <div className="flex-1 flex min-h-0">
-          {/* Left panel: list — full width on mobile, fixed sidebar on desktop */}
-          <div className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-[380px] shrink-0 md:border-r border-stone-200 dark:border-stone-800 flex-col bg-white dark:bg-stone-900`}>
-            {/* Search + filters */}
-            <div className="shrink-0 p-3 border-b border-stone-200 dark:border-stone-800 space-y-2">
-              <SearchBar value={searchQuery} onChange={(q) => setSearchQuery(q)} />
-              <Filters
-                type={filters.type}
-                sort={filters.sort}
-                profile={filters.profile}
-                tag={filters.tag}
-                searchQuery={searchQuery}
-                profiles={profiles}
-                tags={allTags}
-                onTypeChange={(type) => setFilters((f) => ({ ...f, type }))}
-                onSortChange={(sort) => setFilters((f) => ({ ...f, sort }))}
-                onProfileChange={(profile) => setFilters((f) => ({ ...f, profile }))}
-                onTagChange={(tag) => setFilters((f) => ({ ...f, tag }))}
-                onReset={() => { setFilters(DEFAULT_FILTERS); setSearchQuery(""); }}
-              />
-            </div>
-            {/* Memory count */}
-            <div className="shrink-0 px-4 py-2 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500 dark:text-stone-400">
-              {loading ? "Loading..." : `${filteredMemories.length} ${filteredMemories.length === 1 ? "memory" : "memories"}`}
-            </div>
-            {/* Memory list */}
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="text-center text-stone-400 py-12">Loading...</div>
-              ) : (
-                <MemoryList
-                  memories={filteredMemories}
-                  selectedId={selected?.id ?? null}
-                  onSelect={openMemory}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Right panel: detail — full width on mobile, flex on desktop */}
-          <div className={`${selected ? "flex" : "hidden md:flex"} flex-1 flex-col min-h-0`}>
-            {selected ? (
-              <div className="flex-1 flex flex-col min-h-0 p-4 md:p-6">
-                {/* Mobile back button */}
-                <button
-                  onClick={() => setSelected(null)}
-                  className="md:hidden shrink-0 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center gap-1 mb-4 transition-colors"
-                >
-                  <span>&larr;</span> Back to list
-                </button>
-                <MemoryDetail
-                  memory={selected}
-                  onDelete={handleDeleteRequest}
-                  onUpdate={handleUpdate}
-                  onTagClick={(tag) => setFilters((f) => ({ ...f, tag }))}
-                />
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-stone-400 dark:text-stone-600">
-                <div className="text-center">
-                  <svg viewBox="0 0 120 120" fill="none" className="w-16 h-16 mx-auto mb-4 opacity-30">
-                    <rect x="4" y="4" width="112" height="112" rx="24" fill="currentColor"/>
-                    <circle cx="60" cy="62" r="24" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeDasharray="120 31" strokeDashoffset="-10"/>
-                    <line x1="38" y1="58" x2="82" y2="58" stroke="white" strokeWidth="8" strokeLinecap="round"/>
-                  </svg>
-                  <p className="text-sm">Select a memory to view</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete memory"
-        message="This memory will be removed from the vault. It will still be preserved in Git history."
-        confirmLabel="Delete"
-        destructive
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
+    <div
+      style={{
+        width: "100%",
+        height: "100vh",
+        background: "var(--surface)",
+        color: "var(--fg-display)",
+        fontFamily: "var(--font-ui)",
+        fontSize: 14,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      <Header
+        status={status}
+        count={memories.length}
+        onSearchClick={() => setPaletteOpen(true)}
+        onNew={handleCreate}
+        onSettingsClick={() => setTweaksOpen((v) => !v)}
       />
+
+      <TweaksPanel
+        open={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        density={tweaks.density}
+        setDensity={(v) => updateTweaks({ density: v })}
+        showAgents={tweaks.showAgents}
+        setShowAgents={(v) => updateTweaks({ showAgents: v })}
+        accent={tweaks.accent}
+        setAccent={(v) => updateTweaks({ accent: v })}
+        dark={tweaks.dark}
+        setDark={(v) => updateTweaks({ dark: v })}
+      />
+
+      {error && (
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "8px 20px",
+            background: "var(--danger-bg)",
+            borderBottom: "1px solid var(--danger-bd)",
+            color: "var(--danger-fg)",
+            fontSize: 13,
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            style={{ background: "transparent", border: 0, color: "var(--danger-fg)", cursor: "pointer" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <Sidebar
+          memories={memories}
+          profile={profile}
+          setProfile={setProfile}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          agentFilter={agentFilter}
+          setAgentFilter={setAgentFilter}
+        />
+
+        <main style={{ flex: 1, display: "flex", minWidth: 0 }}>
+          <TimelineList
+            memories={filtered}
+            loading={loading || searching}
+            profile={profile}
+            typeFilter={typeFilter}
+            agentFilter={agentFilter}
+            q={q}
+            setQ={setQ}
+            onClearFilters={clearFilters}
+            selectedId={selected?.id ?? null}
+            onSelect={openMemory}
+            sortBy={tweaks.sortBy}
+            setSortBy={(v) => updateTweaks({ sortBy: v })}
+            density={tweaks.density}
+            showAgents={tweaks.showAgents}
+          />
+          <Inspector
+            memory={selected}
+            onDelete={handleDeleteRequest}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onSelect={openMemory}
+            memories={memories.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+            editing={editing}
+            setEditing={setEditing}
+          />
+        </main>
+      </div>
+
+      <ConfirmDelete
+        memoryName={
+          confirmDel ? memories.find((m) => m.id === confirmDel)?.name ?? null : null
+        }
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setConfirmDel(null)}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        memories={memories}
+        query={paletteQ}
+        setQuery={setPaletteQ}
+        onSelect={(id) => {
+          openMemory(id);
+          setPaletteQ("");
+        }}
+        onClose={() => {
+          setPaletteOpen(false);
+          setPaletteQ("");
+        }}
+        onNewMemory={handleCreate}
+        onClearFilters={clearFilters}
+      />
+
+      <Toast message={toast} />
     </div>
   );
 }

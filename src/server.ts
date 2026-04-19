@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { userInfo } from "node:os";
 import { createMemory, readMemory, updateMemory, deleteMemory, touchMemory } from "./memory.js";
 import { search, listMemories, invalidateCache } from "./indexer.js";
 import * as vault from "./vault.js";
@@ -11,6 +12,16 @@ import type { MemoryType } from "./types.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DASHBOARD_DIR = join(__dirname, "dashboard");
+
+const DASHBOARD_AUTHOR = `${safeUsername()}@dashboard`;
+
+function safeUsername(): string {
+  try {
+    return userInfo().username || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
@@ -31,12 +42,32 @@ function error(res: ServerResponse, message: string, status = 400): void {
   json(res, { error: message }, status);
 }
 
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
+
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
+  let size = 0;
   for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
+    const buf = chunk as Buffer;
+    size += buf.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new Error("Request body too large");
+    }
+    chunks.push(buf);
   }
   return Buffer.concat(chunks).toString("utf-8");
+}
+
+function parseJsonBody(raw: string): Record<string, unknown> | Error {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return new Error("Body must be a JSON object");
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return new Error("Invalid JSON body");
+  }
 }
 
 function parseQuery(url: URL): Record<string, string> {
@@ -69,15 +100,20 @@ const apiRoutes: Record<string, RouteHandler> = {
   },
 
   "POST /api/memories": async (req, res) => {
-    const body = JSON.parse(await readBody(req));
+    const body = parseJsonBody(await readBody(req));
+    if (body instanceof Error) return error(res, body.message);
     const parsed = createMemorySchema.safeParse(body);
     if (!parsed.success) return error(res, parsed.error.message);
-    const memory = await createMemory(parsed.data);
+    const memory = await createMemory({
+      ...parsed.data,
+      author: DASHBOARD_AUTHOR,
+    });
     json(res, memory, 201);
   },
 
   "PUT /api/memories/:id": async (req, res, { id }) => {
-    const body = JSON.parse(await readBody(req));
+    const body = parseJsonBody(await readBody(req));
+    if (body instanceof Error) return error(res, body.message);
     const parsed = updateMemorySchema.safeParse({ ...body, id });
     if (!parsed.success) return error(res, parsed.error.message);
     const memory = await updateMemory(parsed.data);

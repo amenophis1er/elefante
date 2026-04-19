@@ -77,12 +77,25 @@ export interface Manifest {
   memories: MemoryMeta[];
 }
 
+/** Posting list: term → list of memory IDs that contain it */
+type PostingList = Record<string, string[]>;
+
 export interface SearchIndex {
   generated_at: string;
   version: string;
+  /** Per-field keyword posting lists */
+  fields: {
+    name: PostingList;
+    description: PostingList;
+    tags: PostingList;
+    body: PostingList;
+  };
+  /** Trigram posting list (all fields merged, for fuzzy/prefix matching) */
+  trigrams: PostingList;
+  /** Number of indexed documents */
   docCount: number;
-  /** Lowercased body text keyed by memory id, for substring matching. */
-  bodies: Record<string, string>;
+  /** Document frequency: how many docs contain each term (for IDF) */
+  df: Record<string, number>;
 }
 
 export interface SearchResult {

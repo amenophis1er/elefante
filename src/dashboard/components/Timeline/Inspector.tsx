@@ -98,7 +98,6 @@ export function Inspector({
   };
 
   const importance = Math.max(0, Math.min(3, memory.importance));
-  const commitFromId = memory.id.startsWith("mem_") ? memory.id.slice(4, 11) : memory.id.slice(0, 7);
 
   const handleSave = () => {
     if (isDraft) {
@@ -288,8 +287,6 @@ export function Inspector({
               {memory.author}
             </span>
           </span>
-          <span style={{ color: "var(--fg-subtle)" }}>commit</span>
-          <span style={{ color: ACCENT, fontFamily: "var(--font-mono)" }}>{commitFromId}</span>
           <span style={{ color: "var(--fg-subtle)" }}>id</span>
           <span
             style={{

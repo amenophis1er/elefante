@@ -98,12 +98,15 @@ export const api = {
     return request(`/memories/${id}`, { method: "DELETE" });
   },
 
-  search(q: string, params?: { type?: string; profile?: string; limit?: number }): Promise<SearchResult[]> {
+  search(
+    q: string,
+    params?: { type?: string; profile?: string; limit?: number; signal?: AbortSignal }
+  ): Promise<SearchResult[]> {
     const qs = new URLSearchParams({ q });
     if (params?.type) qs.set("type", params.type);
     if (params?.profile) qs.set("profile", params.profile);
     if (params?.limit) qs.set("limit", String(params.limit));
-    return request(`/search?${qs}`);
+    return request(`/search?${qs}`, { signal: params?.signal });
   },
 
   getStatus(): Promise<VaultStatus> {

@@ -28,25 +28,24 @@ export function Sidebar({
   agentFilter,
   setAgentFilter,
 }: Props) {
-  const profiles = useMemo(
-    () => [...new Set(memories.map((m) => m.profile ?? "global"))].sort(),
-    [memories]
-  );
-  const agents = useMemo(
-    () => [...new Set(memories.map((m) => m.author))].sort(),
-    [memories]
-  );
-
-  const countBy = <K extends string>(fn: (m: MemoryMeta) => K) =>
-    memories.reduce<Record<string, number>>((acc, m) => {
-      const k = fn(m);
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    }, {});
-
-  const byProfile = countBy((m) => m.profile ?? "global");
-  const byType = countBy((m) => m.type);
-  const byAgent = countBy((m) => m.author);
+  const { profiles, agents, byProfile, byType, byAgent } = useMemo(() => {
+    const byProfile: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+    const byAgent: Record<string, number> = {};
+    for (const m of memories) {
+      const p = m.profile ?? "global";
+      byProfile[p] = (byProfile[p] ?? 0) + 1;
+      byType[m.type] = (byType[m.type] ?? 0) + 1;
+      byAgent[m.author] = (byAgent[m.author] ?? 0) + 1;
+    }
+    return {
+      profiles: Object.keys(byProfile).sort(),
+      agents: Object.keys(byAgent).sort(),
+      byProfile,
+      byType,
+      byAgent,
+    };
+  }, [memories]);
 
   return (
     <aside

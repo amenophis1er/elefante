@@ -121,19 +121,6 @@ export function TimelineList({
     rangeExtractor,
   });
 
-  const activeStickyIndex = useMemo(() => {
-    if (sortBy !== "recent") return -1;
-    const offset = virtualizer.scrollOffset ?? 0;
-    let active = -1;
-    for (const i of stickyIndexes) {
-      const item = virtualizer.measurementsCache[i];
-      if (!item) continue;
-      if (item.start <= offset) active = i;
-      else break;
-    }
-    return active;
-  }, [virtualizer.scrollOffset, virtualizer.measurementsCache, stickyIndexes, sortBy]);
-
   const hasFilters = profile || typeFilter || agentFilter || q;
   const subText =
     sortBy === "recent"
@@ -144,6 +131,14 @@ export function TimelineList({
 
   const totalSize = virtualizer.getTotalSize();
   const virtualItems = virtualizer.getVirtualItems();
+
+  // The rangeExtractor injects the active sticky header as the first range index,
+  // so it's always virtualItems[0] when a header is currently "stuck".
+  const firstVirtual = virtualItems[0];
+  const activeStickyIndex =
+    sortBy === "recent" && firstVirtual && items[firstVirtual.index]?.kind === "header"
+      ? firstVirtual.index
+      : -1;
 
   return (
     <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "22px 28px", minWidth: 0 }}>

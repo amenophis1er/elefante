@@ -141,7 +141,7 @@ export default function App() {
       setSearching(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setSearching(true);
     const handle = window.setTimeout(async () => {
       try {
@@ -149,17 +149,19 @@ export default function App() {
           profile: profile ?? undefined,
           type: typeFilter ?? undefined,
           limit: 500,
+          signal: controller.signal,
         });
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setSearchResults(results.map((r) => ({ ...r.memory, path: "" })));
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Search failed");
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Search failed");
       } finally {
-        if (!cancelled) setSearching(false);
+        if (!controller.signal.aborted) setSearching(false);
       }
     }, 200);
     return () => {
-      cancelled = true;
+      controller.abort();
       window.clearTimeout(handle);
     };
   }, [q, profile, typeFilter]);
@@ -287,7 +289,9 @@ export default function App() {
     setEditing(true);
   };
 
-  createRef.current = handleCreate;
+  useEffect(() => {
+    createRef.current = handleCreate;
+  });
 
   return (
     <div

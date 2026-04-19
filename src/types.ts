@@ -15,6 +15,8 @@ export interface Memory {
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+  author: string;
+  access_count: number;
 }
 
 export interface MemoryMeta {
@@ -28,6 +30,8 @@ export interface MemoryMeta {
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+  author: string;
+  access_count: number;
   path: string;
 }
 
@@ -117,6 +121,7 @@ export const createMemorySchema = z.object({
   description: z.string().max(200).optional(),
   profile: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  author: z.string().max(100).optional(),
 });
 
 export const updateMemorySchema = z.object({

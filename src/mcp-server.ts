@@ -19,6 +19,12 @@ function errorResult(message: string) {
   };
 }
 
+function resolveAuthor(server: McpServer): string {
+  const client = server.server.getClientVersion();
+  if (!client?.name) return "unknown";
+  return client.version ? `${client.name}/${client.version}` : client.name;
+}
+
 export async function startMcpServer(): Promise<void> {
   if (!isInitialized()) {
     console.error("Vault not initialized. Run `elefante init <repo-url>` first.");
@@ -83,7 +89,7 @@ export async function startMcpServer(): Promise<void> {
           resolvedProfile = args.profile ?? detectedProfile ?? undefined;
         }
 
-        const memory = await createMemory({ ...args, profile: resolvedProfile });
+        const memory = await createMemory({ ...args, profile: resolvedProfile, author: resolveAuthor(server) });
         const scope = memory.profile ? `scoped to ${memory.profile}` : "global";
         return {
           content: [

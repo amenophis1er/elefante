@@ -54,6 +54,8 @@ function parseMemoryFile(content: string, filePath: string): Memory {
     created_at: data.created_at,
     updated_at: data.updated_at,
     last_accessed_at: data.last_accessed_at ?? null,
+    author: data.author ?? "unknown",
+    access_count: data.access_count ?? 0,
   };
 }
 
@@ -78,6 +80,8 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
     created_at: timestamp,
     updated_at: timestamp,
     last_accessed_at: null,
+    author: input.author ?? "unknown",
+    access_count: 0,
   };
 
   await pullBeforeWrite();
@@ -109,7 +113,7 @@ export async function touchMemory(id: string): Promise<void> {
   const memory = readMemory(id);
   if (!memory) return;
 
-  memory.importance += 1;
+  memory.access_count += 1;
   memory.last_accessed_at = now();
 
   const path = memoryPath(memory.type, id);
@@ -219,6 +223,8 @@ export function memoryToMeta(memory: Memory): MemoryMeta {
     created_at: memory.created_at,
     updated_at: memory.updated_at,
     last_accessed_at: memory.last_accessed_at,
+    author: memory.author,
+    access_count: memory.access_count,
     path: memoryPath(memory.type, memory.id),
   };
 }

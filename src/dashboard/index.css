@@ -1,22 +1,88 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *, [data-theme="dark"] *));
+
+:root {
+  --primary: #7B7FBF;
+  --primary-hover: #6A6EAE;
+  --primary-tint: color-mix(in srgb, var(--primary) 10%, transparent);
+  --primary-tint-06: color-mix(in srgb, var(--primary) 6%, transparent);
+  --primary-ring: color-mix(in srgb, var(--primary) 30%, transparent);
+
+  --fg-display: #2D2F45;
+  --fg: #44403C;
+  --fg-muted: #78716C;
+  --fg-subtle: #A8A29E;
+
+  --surface: #FAFAF9;
+  --card: #FFFFFF;
+  --card-hover: #F5F5F4;
+  --border: #E7E5E4;
+  --border-hover: #D6D3D1;
+  --border-soft: #F5F5F4;
+
+  --type-user-fg: #1D4ED8; --type-user-bg: #EFF6FF; --type-user-bd: #BFDBFE; --type-user-dot: #3B82F6;
+  --type-feedback-fg: #B45309; --type-feedback-bg: #FFFBEB; --type-feedback-bd: #FDE68A; --type-feedback-dot: #F59E0B;
+  --type-project-fg: #047857; --type-project-bg: #ECFDF5; --type-project-bd: #A7F3D0; --type-project-dot: #10B981;
+  --type-reference-fg: #7E22CE; --type-reference-bg: #FAF5FF; --type-reference-bd: #E9D5FF; --type-reference-dot: #A855F7;
+
+  --code-fg: #C0392B;
+  --code-bg: #FCE4E4;
+  --code-border: #F5C6C6;
+
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-bg: #FEF2F2;
+  --danger-bd: #FECACA;
+  --danger-fg: #B91C1C;
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+}
+
+.dark,
+[data-theme="dark"] {
+  --fg-display: #F5F5F4;
+  --fg: #E7E5E4;
+  --fg-muted: #A8A29E;
+  --fg-subtle: #78716C;
+
+  --surface: #0C0A09;
+  --card: #1C1917;
+  --card-hover: #292524;
+  --border: #292524;
+  --border-hover: #44403C;
+  --border-soft: #292524;
+
+  --type-user-fg: #93C5FD; --type-user-bg: #172554; --type-user-bd: #1E3A8A;
+  --type-feedback-fg: #FCD34D; --type-feedback-bg: #451A03; --type-feedback-bd: #78350F;
+  --type-project-fg: #6EE7B7; --type-project-bg: #022C22; --type-project-bd: #064E3B;
+  --type-reference-fg: #D8B4FE; --type-reference-bg: #2E1065; --type-reference-bd: #4C1D95;
+
+  --code-fg: #F5A3A3;
+  --code-bg: #3B1F1F;
+  --code-border: #5C2B2B;
+
+  --danger-bg: #450A0A;
+  --danger-bd: #7F1D1D;
+  --danger-fg: #FCA5A5;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--surface);
+  color: var(--fg);
+}
 
 .prose :not(pre) > code {
-  background-color: #fce4e4;
-  color: #c0392b;
+  background-color: var(--code-bg);
+  color: var(--code-fg);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.85em;
   font-weight: 500;
-  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
-  border: 1px solid #f5c6c6;
-}
-
-.dark .prose :not(pre) > code {
-  background-color: #3b1f1f;
-  color: #f5a3a3;
-  border-color: #5c2b2b;
+  font-family: var(--font-mono);
+  border: 1px solid var(--code-border);
 }
 
 .prose :not(pre) > code::before,
